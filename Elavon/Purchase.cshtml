@@ -1,0 +1,50 @@
+﻿@using CheckOhioFirst.Web.Models.Event
+@model PurchaseDTO
+
+@section styles
+{
+    <link rel="stylesheet" type="text/css" href="/Content/cof.css" />
+    <style type="text/css">
+        iframe {
+            width: 100%;
+            height: 700px;
+        }
+    </style>
+}
+
+@{
+    ViewBag.Title = "Event";
+    string path = "";
+    string eventName = "Page Error";
+    if ((Model != null))
+    {
+        ViewBag.Title += (Model.Amount >= 0) ? " Purchase" : " Refund";
+        eventName = Model.eventName;
+        if ((Request != null) && (Request.Url != null))
+        {
+            path = "https://" + Request.Url.Host + ":" + Request.Url.Port + "/Event/PurchaseForm/" + Model.InvoiceId;
+        }
+    }
+}
+
+<h2 id="PageTitle">@ViewBag.Title</h2>
+<br />
+
+<div class="clearfix event-form">
+    <div style="float: left; width: 55%; margin: 0">
+        <div style="width: 100%; padding: 5px; margin: 0 5px 0 0; font-size: large; font-weight: bold; background-image: none; background-color: #E2E2E2;"
+             class="ui-Company-Search">
+            @eventName
+        </div>
+        @Html.ValidationSummary(true)
+        <iframe id="iframe1" scrolling="no" src="@path"></iframe>
+    </div>
+    <div style="float: left; width: 40%; padding-left: 10px; margin-left: 10px;">
+        @{
+            if (Model != null)
+            {
+                Html.RenderPartial("EventDetailsRegistration", Model.EventInfoDto);
+            }
+        }
+    </div>
+</div>

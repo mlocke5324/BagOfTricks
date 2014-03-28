@@ -1,0 +1,461 @@
+﻿@using CheckOhioFirst.Web.Models.Event
+@model PurchaseDTO
+
+@*
+   Elavon Purchase Form
+
+   This form is designed to process credit card sale and refund transactions
+   using the Virtual Merchant service of Elavon, Inc. (Elavon).  Elavon is
+   a service provider to banks and other card issuers for credit card processing.
+   Ths banks and card issuers may rebrand the service so their customers may
+   not be aware they are using Elavon services.
+
+   Transaction types and field names in this form and in the associated
+   controller methods are specific to Elavon - other service providers
+   will have different requirements.  Elavon's Developer Guide is found at:
+
+   https://demo.myvirtualmerchant.com/VirtualMerchantDemo/download/developerGuide.pdf
+
+   This form does not post data to our application's web server.  Instead,
+   it posts data to an Elavon server.  In turn, Elavon directs its response to a URL
+   we provide (Model.path), which points to the ElavonResponse method of the
+   Event controller.
+
+   This form is designed to be used within an iframe of a parent form, Purchase.cshtml.
+   In this way, the HTTP Get URL responses from Elavon are hidden so the casual user
+   is unaware of the interaction with Elavon.  If you need to look at the requests
+   and responses, use a tool like FireFox Firebug and look at the network requests.
+*@
+
+@section styles
+{
+   <link rel="stylesheet" type="text/css" href="/Content/cof.css" />
+   <style type="text/css">
+      h3 {
+         font-size: large;
+         font-weight: bold;
+      }
+
+      select {
+         width: 150px;
+      }
+
+      .accordion {
+         margin-top: 10px;
+      }
+
+      td.label {
+         font-size: small;
+         width: 45%;
+      }
+
+      td.edit {
+         font-size: small;
+         width: 50%;
+      }
+
+      form {
+         width: 95%;
+      }
+   </style>
+}
+
+@{
+   Layout = "~/Views/Shared/_LayoutIframe.cshtml";
+   string path = "";
+   if ((Request != null) && (Request.Url != null))
+   {
+      path = "https://" + Request.Url.Host + ":" + Request.Url.Port + "/Event/ElavonResponse";
+   }
+   string waitMessage = "Sending Payment Request - Please Wait";
+   string transactionType = "ccsale";
+   string submitButtonText = "Pay Now";
+   string totalLabel = "Total Amount Due:";
+   double transactionAmount = 0.0d;
+   if (Model != null)
+   {
+      transactionAmount = Math.Abs(Model.Amount);
+      if (Model.Amount < 0)
+      {
+         waitMessage = "Sending Refund Request - Please Wait";
+         transactionType = "cccredit";
+         submitButtonText = "Refund Now";
+         totalLabel = "Amount to Refund:";
+      }
+   }
+   const string method = "REDG";
+}
+@if (Model.PurchaseConfig.MerchantTestMode)
+{
+   <br />
+   <p>
+      <strong>
+         PURCHASES ARE IN TEST MODE
+         <br /><br />Transactions will
+         not be forwarded to the credit card processor and will always be approved.
+      </strong>
+   </p><br />
+}
+<div id="Summary">
+   @if ((Model.ProcessErrors != null) && (Model.ProcessErrors.Count > 0))
+   {
+      <div class="validation-summary-errors">
+         <ul>
+            @foreach (string errMsg in Model.ProcessErrors)
+            {
+               <li>@errMsg</li>
+            }
+         </ul>
+      </div>
+   }
+   @Html.ValidationSummary(true)
+</div>
+@if (Model != null)
+{
+   <form id="ElavonPurchaseForm" class="event-form" action="@Model.PurchaseConfig.MerchantTransactionUrl" method="POST">
+      <input type="hidden" id="ProcessorURL" value="@Model.PurchaseConfig.MerchantTransactionUrl" />
+
+      <input type="hidden" name="ssl_merchant_id" value="@Model.PurchaseConfig.MerchantId" />
+      <input type="hidden" name="ssl_user_id" value="@Model.PurchaseConfig.MerchantUserId" />
+      <input type="hidden" name="ssl_pin" value="@Model.PurchaseConfig.MerchantPassword" />
+      @if (Model.PurchaseConfig.MerchantTestMode)
+      {
+         <input type="hidden" name="ssl_test_mode" value="true" />
+      }
+      <input type="hidden" name="ssl_show_form" value="false" />
+      <input type="hidden" name="ssl_result_format" value="ASCII" />
+
+      <input type="hidden" name="ssl_transaction_type" value="@transactionType" />
+      <input type="hidden" name="TxnType" value="@transactionType" />
+      <input type="hidden" name="ssl_amount" value="@transactionAmount" />
+      <input type="hidden" name="ssl_card_present" value="N" />
+      <input type="hidden" name="cof_invoice_number" value="@Model.InvoiceId.ToString("D6")" />
+      <input id="ssl_exp_date" type="hidden" name="ssl_exp_date" />
+
+      <input type="hidden" name="ssl_error_url" value="@path" />
+      <input type="hidden" name="ssl_result_format" value="HTML" />
+      <input type="hidden" name="ssl_receipt_decl_method" value="@method" />
+      <input type="hidden" name="ssl_receipt_decl_get_url" value="@path" />
+      <input type="hidden" name="ssl_receipt_apprvl_method" value="@method" />
+      <input type="hidden" name="ssl_receipt_apprvl_get_url" value="@path" />
+
+      <div id="paymentinfo">
+         <div id="CardHolderInfo" class="accordion">
+            <h3>Cardholder Information</h3>
+            <table class="event-table">
+               <tbody>
+                  <tr>
+                     <td class="label">First Name *</td>
+                     <td class="edit">
+                        <input id="ssl_first_name" type="text" required name="ssl_first_name" placeholder="First Name" />
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">Last Name *</td>
+                     <td class="edit">
+                        <input id="ssl_last_name" type="text" required name="ssl_last_name" placeholder="Last Name" />
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">Address Line 1 *</td>
+                     <td class="edit">
+                        <input id="ssl_avs_address" type="text" required name="ssl_avs_address" placeholder="Address Line 1" />
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">Address Line 2</td>
+                     <td class="edit">
+                        <input id="ssl_address2" type="text" name="ssl_address2" />
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">City *</td>
+                     <td class="edit">
+                        <input id="ssl_city" type="text" required name="ssl_city" placeholder="City" />
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">State *</td>
+                     <td class="edit">
+                        <input id="ssl_state" type="text" required name="ssl_state" placeholder="State" />
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">Zip Code *</td>
+                     <td class="edit">
+                        <input id="ssl_avs_zip" type="text" required name="ssl_avs_zip" placeholder="Zip code" />
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
+         <div id="CreditCardInfo" class="accordion">
+            <h3>Payment Information</h3>
+            <table class="event-table">
+               <tbody>
+                  <tr>
+                     <td class="label">Card Number *</td>
+                     <td class="edit">
+                        <input id="CreditCard_CardNumber" type="text" placeholder="Card number" required name="ssl_card_number" data-val-length-max="19" data-val-length="Entry cannot be longer than 19 characters" data-val="true">
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">Expiration Date *</td>
+                     <td class="edit">
+                        <select id="CreditCard_ExpirationMonth" required name="CreditCard_ExpirationMonth">
+                           <option value="">-Month-</option>
+                           <option value="01">January</option>
+                           <option value="02">February</option>
+                           <option value="03">March</option>
+                           <option value="04">April</option>
+                           <option value="05">May</option>
+                           <option value="06">June</option>
+                           <option value="07">July</option>
+                           <option value="08">August</option>
+                           <option value="09">September</option>
+                           <option value="10">October</option>
+                           <option value="11">November</option>
+                           <option value="12">December</option>
+                        </select>
+                        <br />
+                        <select id="CreditCard_ExpirationYear" required name="CreditCard_ExpirationYear">
+                           <option value="">-Year-</option>
+                           <option value="@(0 + @DateTime.Now.Year%100)">@(0 + @DateTime.Now.Year)</option>
+                           <option value="@(1 + @DateTime.Now.Year%100)">@(1 + @DateTime.Now.Year)</option>
+                           <option value="@(2 + @DateTime.Now.Year%100)">@(2 + @DateTime.Now.Year)</option>
+                           <option value="@(3 + @DateTime.Now.Year%100)">@(3 + @DateTime.Now.Year)</option>
+                           <option value="@(4 + @DateTime.Now.Year%100)">@(4 + @DateTime.Now.Year)</option>
+                        </select>
+                     </td>
+                  </tr>
+                  <tr>
+                     <td class="label">CSC *</td>
+                     <td class="edit">
+                        <input type="hidden" required name="ssl_cvv2cvc2_indicator" value="1">
+                        <input id="CreditCard_CSC" type="text" required name="ssl_cvv2cvc2" placeholder="Card Security Code">
+                     </td>
+                  </tr>
+               </tbody>
+            </table>
+         </div>
+         <div class="clearfix">
+            <div class="float-right" style="font-weight: bold; color: black;">
+               <table>
+                  <tr>
+                     <td>@totalLabel</td>
+                     <td>
+                        <div id="AmountDue2">@String.Format("{0:F2}", transactionAmount)</div>
+                     </td>
+                  </tr>
+               </table>
+            </div>
+         </div>
+      </div>
+
+      <div style="margin-top: 10px;">
+         <div id="divButtons" class="clearfix">
+            <div class="float-left">
+               <input id="btnBack" type="button" value="Back" onclick="window.top.location.href = '/Event/EventRegistration/@Model.EventInfoDto.Id';" />
+            </div>
+            <div class="float-right">
+               @if (Model.SubmitAllowed)
+               {
+                  <input id="btnSubmit" type="submit" value="@submitButtonText" />
+               }
+            </div>
+         </div>
+         <div id="divWaitMessage" class="clearfix" style="display: none; width: 100%; text-align: center">
+            <strong>@waitMessage</strong>
+         </div>
+
+      </div>
+   </form>
+}
+
+@section scripts
+{
+   <script src="~/Scripts/jquery-1.10.1.js"></script>
+   <script src="~/Scripts/jquery-ui-1.10.3.js"></script>
+   <script src="~/Scripts/jquery.validate.js"></script>
+   <script src="~/Scripts/json2.js"></script>
+   <script type="text/javascript">
+
+      var saveData;
+
+      function ProcessForm() {
+         try {
+            //event.preventDefault();  // Just for testing
+            // Hide the submit button so the user can't hit it again and submit another payment
+            $("#divButtons").hide("slow");
+            $("#divWaitMessage").show("slow");
+            // Construct expiration month/year from the form's month and year selects
+            var expMY = $('#CreditCard_ExpirationMonth').val() + $('#CreditCard_ExpirationYear').val();
+            $('#ssl_exp_date').val(expMY);
+
+            // Save the name and address fields of this form as a json object to the parent form of this form
+            // so we can re-populate the fields if this form has to be displayed again
+            var dataObj = {
+               "ssl_first_name": $("#ssl_first_name").val(),
+               "ssl_last_name": $("#ssl_last_name").val(),
+               "ssl_avs_address": $("#ssl_avs_address").val(),
+               "ssl_address2": $("#ssl_address2").val(),
+               "ssl_city": $("#ssl_city").val(),
+               "ssl_state": $("#ssl_state").val(),
+               "ssl_avs_zip": $("#ssl_avs_zip").val()
+            };
+            var jsonDataString = JSON.stringify(dataObj);
+            saveData.val(jsonDataString);
+            return true;
+         } catch (ex) {
+            var priorHtml = $("#Summary").html();
+            $("#Summary").html(priorHtml + "<strong><p>Summission error: " + ex.message + "</p></strong>");
+         }
+         return false;
+      }
+
+      // Change frame height
+
+      function ChangeFrameHeight() {
+         var frame = $('#iframe1', window.parent.document);
+         var height = jQuery("body").height();
+         frame.height(height + 15);
+      }
+
+      $(function () {
+         try {
+            if ($("#ElavonPurchaseForm").length > 0) {
+               // Apply accordion styling & animation
+               $(".accordion").accordion({
+                  animated: 'Slide',
+                  autoHeight: true,
+                  collapsible: true,
+                  animate: 500,
+                  activate: function (event, ui) { ChangeFrameHeight(); }
+               });
+
+               // Setup form validation using jQuery Validate feature
+
+               $("#ElavonPurchaseForm").validate({
+                  submitHandler: function (form) {         // Validation handles submit if form OK
+                     if (ProcessForm()) {
+                        form.submit();
+                     }
+                  },
+                  showErrors: function (errorMap, errorList) {
+                     var msg = "";
+                     if (this.numberOfInvalids() > 0) {
+                        msg = "<strong>Your form contains " + this.numberOfInvalids() + " error"
+                            + (this.numberOfInvalids() > 1 ? "s" : "") + ", see details below.</strong>";
+                     }
+                     $("#Summary").html(msg);
+
+                     this.defaultShowErrors();
+                     ChangeFrameHeight();
+                  },
+                  rules: {
+                     ssl_first_name: {
+                        required: true,
+                        maxlength: 20
+                     },
+                     ssl_last_name: {
+                        required: true,
+                        maxlength: 30
+                     },
+                     ssl_avs_address: {
+                        required: true,
+                        maxlength: 30
+                     },
+                     ssl_address2: {
+                        maxlength: 30
+                     },
+                     ssl_city: {
+                        required: true,
+                        maxlength: 30
+                     },
+                     ssl_state: {
+                        required: true,
+                        maxlength: 30
+                     },
+                     ssl_avs_zip: {
+                        required: true,
+                        maxlength: 9
+                     },
+                     ssl_card_number: {
+                        required: true,
+                        maxlength: 19
+                     },
+                     CreditCard_ExpirationYear: {
+                        required: true,
+                     },
+                     CreditCard_ExpirationMonth: {
+                        required: true,
+                     },
+                     ssl_cvv2cvc2: {
+                        required: true,
+                        maxlength: 4
+                     }
+                  },
+                  messages: {
+                     ssl_first_name: {
+                        required: "First name is required"
+                     },
+                     ssl_last_name: {
+                        required: "Last name is required"
+                     },
+                     ssl_avs_address: {
+                        required: "Address line 1 is required",
+                     },
+                     ssl_city: {
+                        required: "City is required"
+                     },
+                     ssl_state: {
+                        required: "State is required"
+                     },
+                     ssl_avs_zip: {
+                        required: "Zip code is required"
+                     },
+                     ssl_card_number: {
+                        required: "Card number is required"
+                     },
+                     ssl_cvv2cvc2: {
+                        required: "Card Security Code is required"
+                     },
+                     CreditCard_ExpirationYear: {
+                        required: "Expiration year is required",
+                     },
+                     CreditCard_ExpirationMonth: {
+                        required: "Expiration month is required",
+                     }
+                  }
+               });
+
+               // Change size of iframe element to display all content of this document
+               ChangeFrameHeight();
+
+               // Create hidden element in parent form to save this form's data
+               if ($("#InnerFormData", window.parent.document).length == 0) { // If element is not defined
+                  $("div#body", window.parent.document).append('<input type="hidden" id="InnerFormData" value="" />'); // Add it to the body
+               }
+               saveData = $('#InnerFormData', window.parent.document);
+
+               // Populate form with any prior data saved in the parent form
+               var jsonStringData = saveData.val();
+
+               if ((jsonStringData != null) && (jsonStringData != "")) {
+                  var savedFormData = JSON.parse(jsonStringData);
+                  $("#ssl_first_name").val(savedFormData.ssl_first_name);
+                  $("#ssl_last_name").val(savedFormData.ssl_last_name);
+                  $("#ssl_avs_address").val(savedFormData.ssl_avs_address);
+                  $("#ssl_address2").val(savedFormData.ssl_address2);
+                  $("#ssl_city").val(savedFormData.ssl_city);
+                  $("#ssl_state").val(savedFormData.ssl_state);
+                  $("#ssl_avs_zip").val(savedFormData.ssl_avs_zip);
+               }
+            }
+         } catch (ex) {
+            var priorHtml = $("#Summary").html();
+            $("#Summary").html(priorHtml + "<strong><p>Page initialization error: " + ex.message + "</p></strong>");
+         }
+      });
+   </script>
+}
